@@ -1,5 +1,19 @@
 // Author: Tommy Jung
 
+/*
+  OUTPUT KEYS:
+  # nop       = no request in this bank.
+  # closed    = there is a request in this bank, but the row is closed.
+  # act       = activate
+  # rd        = read
+  # wr        = write
+  # pre       = precharge
+  # row_miss  = there is a request but row miss. 
+  # arb       = there is a row hit, but other bank is accessing (arbitrated)
+  # ref       = refresh
+  # conf      = there is a row hit, but can't access due to various timing constraints (tWTR, tCCD_S, etc)
+*/
+
 #include "blood_graph.h"
 
 namespace dramsim3 {
