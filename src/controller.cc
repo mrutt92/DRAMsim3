@@ -231,6 +231,8 @@ void Controller::ScheduleTransaction() {
     std::vector<Transaction> &queue =
         is_unified_queue_ ? unified_queue_
                           : write_draining_ > 0 ? write_buffer_ : read_queue_;
+
+    bool command_selected = false;
     for (auto it = queue.begin(); it != queue.end(); it++) {
         auto cmd = TransToCommand(*it);
         if (cmd_queue_.WillAcceptCommand(cmd.Rank(), cmd.Bankgroup(),
@@ -238,18 +240,20 @@ void Controller::ScheduleTransaction() {
             if (!is_unified_queue_ && cmd.IsWrite()) {
                 // Enforce R->W dependency
                 if (pending_rd_q_.count(it->addr) > 0) {
-                    write_draining_ = 0;
-                    force_reads_ = true;
-                    return;
+                    write_draining_ -= 1;
+                    // skip this command until after read
+                    continue;
                 }
                 write_draining_ -= 1;
             }
             cmd_queue_.AddCommand(cmd);
+            command_selected = true;
             queue.erase(it);
             break;
         }
     }
-    force_reads_ = false;
+
+    force_reads_ = !command_selected;
 }
 
 void Controller::IssueCommand(const Command &cmd) {
