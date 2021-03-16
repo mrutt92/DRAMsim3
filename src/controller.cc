@@ -285,9 +285,10 @@ void Controller::IssueCommand(const Command &cmd) {
         auto wr_lat = clk_ - it->second.added_cycle + config_.write_delay;
         simple_stats_.AddValue("write_latency", wr_lat);
         pending_wr_q_.erase(it);
-        if (pending_wr_q_.size() == 0) {
-          write_draining_ = false;
-        }
+        // bsg-tommy: turn of write_draining_, once the first write is issued.
+        // the remaining writes in pending_wr_q_ should drain out and be prioritized over reads
+        // since  the data bus has turned. Now, the reads can be scheduled in ScheduleTransaction() as well.
+        write_draining_ = false;
     }
     // must update stats before states (for row hits)
     UpdateCommandStats(cmd);
