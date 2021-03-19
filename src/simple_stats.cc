@@ -542,15 +542,6 @@ void SimpleStats::UpdateTagStats() {
         GetHistoAvg(tag_histo_counts_.at("interarrival_latency"));
 
     UpdatePrints(TAG);
-    for (auto& it : tag_counters_) {
-        it.second = 0;
-    }
-    for (auto& vec : tag_vec_counters_) {
-        std::fill(vec.second.begin(), vec.second.end(), 0);
-    }
-    for (auto& it : tag_histo_counts_) {
-        it.second.clear();
-    }
     return;
 }
 
