@@ -177,10 +177,7 @@ int CommandQueue::GetQueueIndex(int rank, int bankgroup, int bank) const {
     if (queue_structure_ == QueueStructure::PER_RANK) {
         return rank;
     } else {
-        // multi-level round-robin arbitration
-        // ba 0 ... ba n   ba 0 ... ba n   ba 0 ... ba n   ba 0 ... ba m
-        //      bg0     ...     bg1             bg0     ...     bg1
-        //              ra0                             ra1
+        // alternates ranks, then bank groups, then banks
         return bank * config_.bankgroups * config_.ranks
             +  bankgroup * config_.ranks
             +  rank;
