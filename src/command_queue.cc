@@ -147,6 +147,14 @@ CMDQueue& CommandQueue::GetNextQueue() {
     return queues_[queue_idx_];
 }
 
+std::tuple<int, int, int> CommandQueue::GetBankBankgroupRankFromQueueIndex(int queue_index) const {
+    int rank = queue_index % config_.ranks;
+    int bgba = queue_index / config_.ranks;
+    int bankgroup = bgba % config_.bankgroups;
+    int bank = bgba / config_.bankgroups;
+    return std::make_tuple(bank, bankgroup, rank);
+}
+
 void CommandQueue::GetRefQIndices(const Command& ref) {
     if (ref.cmd_type == CommandType::REFRESH) {
         if (queue_structure_ == QueueStructure::PER_BANK) {

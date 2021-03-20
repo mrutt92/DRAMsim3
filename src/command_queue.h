@@ -3,6 +3,7 @@
 
 #include <unordered_set>
 #include <vector>
+#include <tuple>
 #include "channel_state.h"
 #include "common.h"
 #include "configuration.h"
@@ -27,6 +28,7 @@ class CommandQueue {
 
     bool QueueEmpty(int q_idx) const;
     int GetQueueIndex(int rank, int bankgroup, int bank) const;
+    std::tuple<int, int, int> GetBankBankgroupRankFromQueueIndex(int queue_index) const;    
     int QueueUsage() const;
     std::vector<bool> rank_q_empty;
 

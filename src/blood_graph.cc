@@ -118,9 +118,9 @@ void BloodGraph::ClockTick() {
         if (cmd_queue_->QueueEmpty(i)) {
           PrintTrace(i, "nop");
         } else {
-          int ra = i / config_.banks;
-          int bg = (i % config_.banks) / config_.banks_per_group;
-          int ba = (i % config_.banks) % config_.banks_per_group;
+          int ra, bg, ba;
+          std::tie(ba, bg, ra) = cmd_queue_->GetBankBankgroupRankFromQueueIndex(i);
+          assert(cmd_queue_->GetQueueIndex(ra, bg, ba) == i);
           if (channel_state_->IsRowOpen(ra,bg,ba)) {
             // check if there is any row hit.
             int open_row = channel_state_->OpenRow(ra,bg,ba);
