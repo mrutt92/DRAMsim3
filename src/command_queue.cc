@@ -16,6 +16,19 @@ CommandQueue::CommandQueue(int channel_id, const Config& config,
     if (config_.queue_structure == "PER_BANK") {
         queue_structure_ = QueueStructure::PER_BANK;
         num_queues_ = config_.banks * config_.ranks;
+    } else if (config_.queue_structure == "PER_BANK_MLRR") {
+        queue_structure_ = QueueStructure::PER_BANK_MLRR;
+        num_queues_ = config_.banks * config_.ranks;
+        // initialize bookkeeping for our multi-level round-robin
+        // scheduler
+        mlrr_ra_ = 0;
+        // keeps track of next bank group foreach rank
+        mlrr_rabg_.resize(config_.ranks);
+        // keeps track of next bank foreach (ra,bg)
+        mlrr_rabgba_.resize(config_.ranks);
+        for (int ra = 0; ra < config_.ranks; ra++) {
+            mlrr_rabgba_[ra].resize(config_.bankgroups);
+        }
     } else if (config_.queue_structure == "PER_RANK") {
         queue_structure_ = QueueStructure::PER_RANK;
         num_queues_ = config_.ranks;
@@ -34,21 +47,113 @@ CommandQueue::CommandQueue(int channel_id, const Config& config,
 }
 
 Command CommandQueue::GetCommandToIssue() {
-    for (int i = 0; i < num_queues_; i++) {
-        auto& queue = GetNextQueue();
-        // if we're refresing, skip the command queues that are involved
-        if (is_in_ref_) {
-            if (ref_q_indices_.find(queue_idx_) != ref_q_indices_.end()) {
-                continue;
-            }
+    if (queue_structure_ == QueueStructure::PER_BANK_MLRR) {
+        return GetCommandToIssueMLRR();
+    } else {
+        return GetCommandToIssueBase();
+    }
+}
+
+/**
+ * Searches the queue corresponding to current value of queue_idx_ for a ready command.
+ * Returns a valid and ready command if one is found, otherwise an invalid command is returned.
+ */
+Command CommandQueue::GetCommandToIssueFromQueue() {
+    // if we're refresing, skip the command queues that are involved
+    if (is_in_ref_) {
+        if (ref_q_indices_.find(queue_idx_) != ref_q_indices_.end()) {
+            return Command();
         }
-        auto cmd = GetFirstReadyInQueue(queue);
-        if (cmd.IsValid()) {
-            if (cmd.IsReadWrite()) {
-                EraseRWCommand(cmd);
-            }
+    }
+
+    auto &queue = queues_[queue_idx_];
+    auto cmd = GetFirstReadyInQueue(queue);
+    if (cmd.IsValid()) {
+        if (cmd.IsReadWrite()) {
+            EraseRWCommand(cmd);
+        }
+        return cmd;
+    }
+
+    return Command();
+}
+
+Command CommandQueue::GetComandToIssueFromRaBgBa() {
+    int ra, bg, ba;
+    ra = mlrr_ra_;
+    bg = mlrr_rabg_[ra];
+    ba = mlrr_rabgba_[ra][bg];
+
+    queue_idx_ = GetQueueIndex(ra, bg, ba);
+    return GetCommandToIssueFromQueue();
+}
+
+Command CommandQueue::GetCommandToIssueFromRaBg() {
+    int bg = mlrr_rabg_[mlrr_ra_];
+    int &ba = mlrr_rabgba_[mlrr_ra_][bg];
+    for (int ba_i = 0; ba_i < config_.banks_per_group; ba_i++) {
+        // increment bank
+        ba++;
+        if (ba == config_.banks_per_group)
+            ba = 0;
+
+        // search bank for command to issue
+        auto cmd = GetComandToIssueFromRaBgBa();
+
+        // valid?
+        if (cmd.IsValid())
             return cmd;
-        }
+
+        // next bank
+    }
+    return Command();
+}
+
+Command CommandQueue::GetCommandToIssueFromRank() {
+    int &bg = mlrr_rabg_[mlrr_ra_];
+    for (int bg_i = 0; bg_i < config_.bankgroups; bg_i++) {
+        // increment bank group
+        bg++;
+        if (bg == config_.bankgroups)
+            bg = 0;
+
+        // search bank group for command to issue
+        auto cmd = GetCommandToIssueFromRaBg();
+
+        // valid?
+        if (cmd.IsValid())
+            return cmd;
+
+        // next bank group
+    }
+    return Command();
+}
+
+Command CommandQueue::GetCommandToIssueMLRR() {
+    for (int ra_i = 0; ra_i < config_.ranks; ra_i++) {
+        // increment rank
+        mlrr_ra_++;
+        if (mlrr_ra_ == config_.ranks)
+            mlrr_ra_ = 0;
+
+        // search rank for command to issue
+        auto cmd = GetCommandToIssueFromRank();
+
+        // valid?
+        if (cmd.IsValid())
+            return cmd;
+
+        // next rank
+    }
+    return Command();
+}
+
+Command CommandQueue::GetCommandToIssueBase() {
+    for (int i = 0; i < num_queues_; i++) {
+        GetNextQueue();
+        auto cmd = GetCommandToIssueFromQueue();
+        if (cmd.IsValid())
+            return cmd;
     }
     return Command();
 }
@@ -157,7 +262,8 @@ std::tuple<int, int, int> CommandQueue::GetBankBankgroupRankFromQueueIndex(int q
 
 void CommandQueue::GetRefQIndices(const Command& ref) {
     if (ref.cmd_type == CommandType::REFRESH) {
-        if (queue_structure_ == QueueStructure::PER_BANK) {
+        if (queue_structure_ == QueueStructure::PER_BANK ||
+            queue_structure_ == QueueStructure::PER_BANK_MLRR) {
             for (int i = 0; i < num_queues_; i++) {
                 if (i / config_.banks == ref.Rank()) {
                     ref_q_indices_.insert(i);

@@ -13,7 +13,7 @@ namespace dramsim3 {
 
 using CMDIterator = std::vector<Command>::iterator;
 using CMDQueue = std::vector<Command>;
-enum class QueueStructure { PER_RANK, PER_BANK, SIZE };
+    enum class QueueStructure { PER_RANK, PER_BANK, PER_BANK_MLRR, SIZE };
 
 class CommandQueue {
    public:
@@ -36,12 +36,20 @@ class CommandQueue {
     CMDQueue& GetQueue(int rank, int bankgroup, int bank);
 
    private:
+    Command GetCommandToIssueBase();
+    Command GetCommandToIssueMLRR();
+    Command GetCommandToIssueFromQueue();
+    Command GetComandToIssueFromRaBgBa();
+    Command GetCommandToIssueFromRaBg();
+    Command GetCommandToIssueFromRank();
+
     bool ArbitratePrecharge(const CMDIterator& cmd_it,
                             const CMDQueue& queue) const;
     bool HasRWDependency(const CMDIterator& cmd_it,
                          const CMDQueue& queue) const;
     Command GetFirstReadyInQueue(CMDQueue& queue) const;
     CMDQueue& GetNextQueue();
+
     void GetRefQIndices(const Command& ref);
     void EraseRWCommand(const Command& cmd);
     Command PrepRefCmd(const CMDIterator& it, const Command& ref) const;
@@ -61,6 +69,10 @@ class CommandQueue {
     size_t queue_size_;
     int queue_idx_;
     uint64_t clk_;
+    // for multi-level round-robin scheduling
+    std::vector<std::vector<int>> mlrr_rabgba_;
+    std::vector<int> mlrr_rabg_;
+    int mlrr_ra_;
 };
 
 }  // namespace dramsim3
