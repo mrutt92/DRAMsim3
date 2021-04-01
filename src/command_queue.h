@@ -3,6 +3,7 @@
 
 #include <unordered_set>
 #include <vector>
+#include <tuple>
 #include "channel_state.h"
 #include "common.h"
 #include "configuration.h"
@@ -27,6 +28,7 @@ class CommandQueue {
 
     bool QueueEmpty(int q_idx) const;
     int GetQueueIndex(int rank, int bankgroup, int bank) const;
+    std::tuple<int, int, int> GetBankBankgroupRankFromQueueIndex(int queue_index) const;    
     int QueueUsage() const;
     std::vector<bool> rank_q_empty;
 
@@ -40,7 +42,6 @@ class CommandQueue {
                          const CMDQueue& queue) const;
     Command GetFirstReadyInQueue(CMDQueue& queue) const;
     CMDQueue& GetNextQueue();
-    std::vector<int> GetQueueQueue();
     void GetRefQIndices(const Command& ref);
     void EraseRWCommand(const Command& cmd);
     Command PrepRefCmd(const CMDIterator& it, const Command& ref) const;
@@ -51,7 +52,6 @@ class CommandQueue {
     SimpleStats& simple_stats_;
 
     std::vector<CMDQueue> queues_;
-    std::vector<uint64_t> last_issued_;
 
     // Refresh related data structures
     std::unordered_set<int> ref_q_indices_;

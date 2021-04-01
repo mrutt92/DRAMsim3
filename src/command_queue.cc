@@ -31,27 +31,11 @@ CommandQueue::CommandQueue(int channel_id, const Config& config,
         cmd_queue.reserve(config_.cmd_queue_size);
         queues_.push_back(cmd_queue);
     }
-
-    last_issued_.resize(queues_.size(), 0);
-}
-
-std::vector<int> CommandQueue::GetQueueQueue() {
-    std::vector<int> qq(queues_.size());
-    for (int i = 0; i < queues_.size(); i++)
-        qq[i] = i;
-
-    std::sort(qq.begin(), qq.end(), [this](const int& first, const int& second) {
-            return this->last_issued_[first] < this->last_issued_[second];
-        });
-
-    return qq;
 }
 
 Command CommandQueue::GetCommandToIssue() {
-    auto qqueue = GetQueueQueue();
-    for (int qidx : qqueue) {
-        queue_idx_ = qidx;
-        auto& queue = queues_[queue_idx_];
+    for (int i = 0; i < num_queues_; i++) {
+        auto& queue = GetNextQueue();
         // if we're refresing, skip the command queues that are involved
         if (is_in_ref_) {
             if (ref_q_indices_.find(queue_idx_) != ref_q_indices_.end()) {
@@ -63,9 +47,6 @@ Command CommandQueue::GetCommandToIssue() {
             if (cmd.IsReadWrite()) {
                 EraseRWCommand(cmd);
             }
-            // update the last time a command from this
-            // queue was issued
-            last_issued_[queue_idx_] = clk_;
             return cmd;
         }
     }
@@ -166,6 +147,14 @@ CMDQueue& CommandQueue::GetNextQueue() {
     return queues_[queue_idx_];
 }
 
+std::tuple<int, int, int> CommandQueue::GetBankBankgroupRankFromQueueIndex(int queue_index) const {
+    int rank = queue_index % config_.ranks;
+    int bgba = queue_index / config_.ranks;
+    int bankgroup = bgba % config_.bankgroups;
+    int bank = bgba / config_.bankgroups;
+    return std::make_tuple(bank, bankgroup, rank);
+}
+
 void CommandQueue::GetRefQIndices(const Command& ref) {
     if (ref.cmd_type == CommandType::REFRESH) {
         if (queue_structure_ == QueueStructure::PER_BANK) {
@@ -188,8 +177,10 @@ int CommandQueue::GetQueueIndex(int rank, int bankgroup, int bank) const {
     if (queue_structure_ == QueueStructure::PER_RANK) {
         return rank;
     } else {
-        return rank * config_.banks + bankgroup * config_.banks_per_group +
-               bank;
+        // alternates ranks, then bank groups, then banks
+        return bank * config_.bankgroups * config_.ranks
+            +  bankgroup * config_.ranks
+            +  rank;
     }
 }
 
