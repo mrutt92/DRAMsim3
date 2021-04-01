@@ -47,11 +47,19 @@ CommandQueue::CommandQueue(int channel_id, const Config& config,
 }
 
 Command CommandQueue::GetCommandToIssue() {
+    Command cmd = Command();
     if (queue_structure_ == QueueStructure::PER_BANK_MLRR) {
-        return GetCommandToIssueMLRR();
+        //return GetCommandToIssueMLRR();
+        cmd = GetOldestCommandToIssueML();
+        //cmd = GetCommandToIssueMLRR();
     } else {
-        return GetCommandToIssueBase();
+        cmd = GetCommandToIssueBase();
     }
+
+    if (cmd.IsValid() && cmd.IsReadWrite())
+        EraseRWCommand(cmd);
+
+    return cmd;
 }
 
 /**
@@ -67,18 +75,10 @@ Command CommandQueue::GetCommandToIssueFromQueue() {
     }
 
     auto &queue = queues_[queue_idx_];
-    auto cmd = GetFirstReadyInQueue(queue);
-    if (cmd.IsValid()) {
-        if (cmd.IsReadWrite()) {
-            EraseRWCommand(cmd);
-        }
-        return cmd;
-    }
-
-    return Command();
+    return GetFirstReadyInQueue(queue);
 }
 
-Command CommandQueue::GetComandToIssueFromRaBgBa() {
+Command CommandQueue::GetCommandToIssueFromRaBgBa() {
     int ra, bg, ba;
     ra = mlrr_ra_;
     bg = mlrr_rabg_[ra];
@@ -86,6 +86,31 @@ Command CommandQueue::GetComandToIssueFromRaBgBa() {
 
     queue_idx_ = GetQueueIndex(ra, bg, ba);
     return GetCommandToIssueFromQueue();
+}
+
+Command CommandQueue::GetOldestCommandToIssueFromRaBg() {
+    Command oldest = Command();
+    int bg = mlrr_rabg_[mlrr_ra_];
+    int &ba = mlrr_rabgba_[mlrr_ra_][bg];
+    for (int ba_i = 0; ba_i < config_.banks_per_group; ba_i++) {
+        // increment bank
+        ba++;
+        if (ba == config_.banks_per_group)
+            ba = 0;
+
+        // search bank for command to issue
+        auto cmd = GetCommandToIssueFromRaBgBa();
+
+        // valid?
+        if (cmd.IsValid()) {
+            // oldest?
+            if (!oldest.IsValid() || cmd.timestamp < oldest.timestamp)
+                oldest = cmd;
+        }
+
+        // next bank
+    }
+    return oldest;
 }
 
 Command CommandQueue::GetCommandToIssueFromRaBg() {
@@ -98,7 +123,7 @@ Command CommandQueue::GetCommandToIssueFromRaBg() {
             ba = 0;
 
         // search bank for command to issue
-        auto cmd = GetComandToIssueFromRaBgBa();
+        auto cmd = GetCommandToIssueFromRaBgBa();
 
         // valid?
         if (cmd.IsValid())
@@ -107,6 +132,29 @@ Command CommandQueue::GetCommandToIssueFromRaBg() {
         // next bank
     }
     return Command();
+}
+
+Command CommandQueue::GetOldestCommandToIssueFromRank() {
+    Command oldest = Command();
+    int &bg = mlrr_rabg_[mlrr_ra_];
+    for (int bg_i = 0; bg_i < config_.bankgroups; bg_i++) {
+        // increment bank group
+        bg++;
+        if (bg == config_.bankgroups)
+            bg = 0;
+
+        // search bank group for command to issue
+        auto cmd = GetOldestCommandToIssueFromRaBg();
+
+        // valid?
+        if (cmd.IsValid()) {
+            // oldest?
+            if (!oldest.IsValid() || cmd.timestamp < oldest.timestamp)
+                oldest = cmd;
+        }
+        // next bank group
+    }
+    return oldest;
 }
 
 Command CommandQueue::GetCommandToIssueFromRank() {
@@ -146,6 +194,30 @@ Command CommandQueue::GetCommandToIssueMLRR() {
         // next rank
     }
     return Command();
+}
+
+Command CommandQueue::GetOldestCommandToIssueML() {
+    Command oldest = Command();
+    oldest.timestamp = clk_;
+    
+    for (int ra_i = 0; ra_i < config_.ranks; ra_i++) {
+        // increment rank
+        mlrr_ra_++;
+        if (mlrr_ra_ == config_.ranks)
+            mlrr_ra_ = 0;
+
+        // search rank for command to issue
+        auto cmd = GetOldestCommandToIssueFromRank();
+
+        // valid?
+        if (cmd.IsValid()) {
+            // oldest?
+            if (!oldest.IsValid() || cmd.timestamp < oldest.timestamp)
+                oldest = cmd;
+        }
+        // next rank
+    }
+    return oldest;
 }
 
 Command CommandQueue::GetCommandToIssueBase() {
@@ -236,6 +308,7 @@ bool CommandQueue::QueueEmpty(int q_idx) const {
 bool CommandQueue::AddCommand(Command cmd) {
     auto& queue = GetQueue(cmd.Rank(), cmd.Bankgroup(), cmd.Bank());
     if (queue.size() < queue_size_) {
+        cmd.timestamp = clk_;
         queue.push_back(cmd);
         rank_q_empty[cmd.Rank()] = false;
         return true;
@@ -310,6 +383,8 @@ Command CommandQueue::GetFirstReadyInQueue(CMDQueue& queue) const {
                 continue;
             }
         }
+        cmd.timestamp = cmd_it->timestamp;
+        //std::cout << "timestamp = " << cmd.timestamp << std::endl;
         return cmd;
     }
     return Command();

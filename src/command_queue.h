@@ -39,9 +39,13 @@ class CommandQueue {
     Command GetCommandToIssueBase();
     Command GetCommandToIssueMLRR();
     Command GetCommandToIssueFromQueue();
-    Command GetComandToIssueFromRaBgBa();
+    Command GetCommandToIssueFromRaBgBa();
     Command GetCommandToIssueFromRaBg();
     Command GetCommandToIssueFromRank();
+
+    Command GetOldestCommandToIssueFromRaBg();
+    Command GetOldestCommandToIssueFromRank();
+    Command GetOldestCommandToIssueML();
 
     bool ArbitratePrecharge(const CMDIterator& cmd_it,
                             const CMDQueue& queue) const;
