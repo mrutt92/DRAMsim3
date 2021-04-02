@@ -17,6 +17,7 @@ target_include_directories(inih INTERFACE ext/headers)
 add_library(format INTERFACE)
 target_include_directories(format INTERFACE ext/fmt/include)
 target_compile_definitions(format INTERFACE FMT_HEADER_ONLY=1)
+target_compile_definitions(format INTERFACE BLOOD_GRAPH=1)
 
 # argparsing library, only used in main program not the library
 add_library(args INTERFACE)
@@ -39,6 +40,7 @@ add_library(dramsim3 SHARED
     src/simple_stats.cc
     src/timing.cc
     src/memory_system.cc
+    src/blood_graph.cc
 )
 
 if (THERMAL)
@@ -60,7 +62,7 @@ if (THERMAL)
     target_sources(dramsim3
         PRIVATE src/thermal.cc src/sp_ienv.c src/thermal_solver.c
     )
-    target_compile_options(dramsim3 PRIVATE -DTHERMAL -D_LONGINT -DAdd_ ${OpenMP_C_FLAGS})
+    target_compile_options(dramsim3 PRIVATE -DBLOOD_GRAPH=1 -DTHERMAL -D_LONGINT -DAdd_ ${OpenMP_C_FLAGS})
 
     add_executable(thermalreplay src/thermal_replay.cc)
     target_link_libraries(thermalreplay dramsim3 inih)

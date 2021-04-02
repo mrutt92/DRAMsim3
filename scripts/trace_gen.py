@@ -34,6 +34,32 @@ def hbm2_alt_bank_iter():
         bank_i = (bank_i + 1) % len(banks)
         row_i  = (row_i + 1)  % len(rows)
 
+def manycore_l2_iter():
+    """
+    We use HBM
+    """
+    ba = {'width' : 3,
+          'offset' :14}
+    
+    bg = {'width' : 3,
+          'offset' :17},
+    
+    ro = {'width' :15,
+          'offset':20}
+    
+    ch = {'width' :3,
+          'offset':11}
+
+    rows = list(range(32768))
+    random.shuffle(rows)
+    row_i = 0
+    for bank in range(8):
+        for bankgroup in range(8):
+            # select random row
+            row = rows[row_i]
+            row_i += 1
+            # issue two reads
+
 class Generator():
     """
     Format agnostic address stream generator
