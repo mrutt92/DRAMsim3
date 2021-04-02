@@ -103,11 +103,16 @@ Command CommandQueue::GetOldestCommandToIssueFromRaBg() {
 
         // valid?
         if (cmd.IsValid()) {
-            // oldest?
-            if (!oldest.IsValid() || cmd.timestamp < oldest.timestamp)
+            if (!oldest.IsValid()) {
                 oldest = cmd;
+            // if both are writes or both are reads, the oldest wins
+            } else if ((cmd.for_write == oldest.for_write)) {
+                oldest = cmd.timestamp < oldest.timestamp ? cmd : oldest;
+            // the read wins
+            } else {
+                oldest = cmd.for_write ? oldest : cmd;
+            }
         }
-
         // next bank
     }
     return oldest;
@@ -148,9 +153,15 @@ Command CommandQueue::GetOldestCommandToIssueFromRank() {
 
         // valid?
         if (cmd.IsValid()) {
-            // oldest?
-            if (!oldest.IsValid() || cmd.timestamp < oldest.timestamp)
+            if (!oldest.IsValid()) {
                 oldest = cmd;
+            // if both are writes or both are reads, the oldest wins
+            } else if ((cmd.for_write == oldest.for_write)) {
+                oldest = cmd.timestamp < oldest.timestamp ? cmd : oldest;
+            // the read wins
+            } else {
+                oldest = cmd.for_write ? oldest : cmd;
+            }
         }
         // next bank group
     }
@@ -211,9 +222,15 @@ Command CommandQueue::GetOldestCommandToIssueML() {
 
         // valid?
         if (cmd.IsValid()) {
-            // oldest?
-            if (!oldest.IsValid() || cmd.timestamp < oldest.timestamp)
+            if (!oldest.IsValid()) {
                 oldest = cmd;
+            // if both are writes or both are reads, the oldest wins
+            } else if ((cmd.for_write == oldest.for_write)) {
+                oldest = cmd.timestamp < oldest.timestamp ? cmd : oldest;
+            // the read wins
+            } else {
+                oldest = cmd.for_write ? oldest : cmd;
+            }
         }
         // next rank
     }
@@ -384,6 +401,7 @@ Command CommandQueue::GetFirstReadyInQueue(CMDQueue& queue) const {
             }
         }
         cmd.timestamp = cmd_it->timestamp;
+        cmd.for_write = cmd_it->IsWrite();
         //std::cout << "timestamp = " << cmd.timestamp << std::endl;
         return cmd;
     }

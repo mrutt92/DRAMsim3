@@ -94,6 +94,7 @@ struct Command {
     Address addr;
     uint64_t hex_addr;
     uint64_t timestamp;
+    bool for_write;
 
     int Channel() const { return addr.channel; }
     int Rank() const { return addr.rank; }
