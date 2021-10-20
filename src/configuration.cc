@@ -143,10 +143,8 @@ void Config::InitDRAMParams() {
     // page size, and address mapping...
     // To make life easier, we regulate the use of the term "column"
     // to only represent physical column (device width)
-    if (IsGDDR()) {
+    if (IsGDDR() || IsHBM()) {
         columns *= BL;
-    } else if (IsHBM()) {
-        columns *= 2;
     }
     return;
 }
