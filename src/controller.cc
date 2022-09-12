@@ -326,6 +326,10 @@ void Controller::PrintTagStats(uint32_t tag) {
         thermal_calc_.UpdateBackgroundEnergy(channel_id_, r, bg_energy);
     }
 #endif  // THERMAL
+
+#ifdef BLOOD_GRAPH
+  blood_graph_.PrintTagStats(tag);
+#endif
     return;
 }
 

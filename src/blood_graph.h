@@ -22,6 +22,8 @@ class BloodGraph {
     CommandQueue* cmd_queue_;
     ChannelState* channel_state_;
 
+    void PrintTagStats(uint32_t tag);
+
   private:
     // channel info
     const Config &config_;
@@ -42,6 +44,12 @@ class BloodGraph {
     // trace stream
     std::ofstream trace_;
     void PrintTrace(int bank_id, const std::string &str);
+
+    // stat info
+    int idle_count_;
+    int read_count_;
+    int write_count_;
+    std::ofstream stat_;
 };
 
 } // namespace dramsim3

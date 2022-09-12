@@ -40,11 +40,21 @@ BloodGraph::BloodGraph(int channel_id, const Config &config)
     act_count_[i] = 0;
   }
 
+#ifdef BLOOD_GRAPH_ENABLE_TRACE
   std::string trace_file_name = "blood_graph_ch" + std::to_string(channel_id_) + ".log";
   trace_.open(trace_file_name, std::ofstream::out);
-#ifdef BLOOD_GRAPH
   trace_ << "time,bank,state" << std::endl;
 #endif
+  
+  // stat info
+  // Format:
+  // {timestamp, tag, channel_id, idle, read, write} 
+  idle_count_ = 0;
+  read_count_ = 0;
+  write_count_ = 0;
+  std::string stat_file_name = "blood_graph_stat.log";
+  stat_.open(stat_file_name, std::ofstream::out);
+  stat_ << "timestamp,tag,channel_id,idle,read,write" << std::endl;
 }
 
 
@@ -112,11 +122,14 @@ void BloodGraph::ClockTick() {
         pre_count_[i]--;
       } else if (read_issued_[i]) {
         PrintTrace(i, "rd");
+        read_count_++;
       } else if (write_issued_[i]) {
         PrintTrace(i, "wr");
+        write_count_++;
       } else {
         if (cmd_queue_->QueueEmpty(i)) {
           PrintTrace(i, "nop");
+          idle_count_++;
         } else {
           int ra, bg, ba;
           std::tie(ba, bg, ra) = cmd_queue_->GetBankBankgroupRankFromQueueIndex(i);
@@ -169,9 +182,22 @@ void BloodGraph::ClockTick() {
 
 void BloodGraph::PrintTrace(int bank_id, const std::string &str)
 {
-#ifdef BLOOD_GRAPH
+#ifdef BLOOD_GRAPH_ENABLE_TRACE
   trace_ << clk_ << "," << bank_id << "," << str << std::endl;
 #endif
+}
+
+void BloodGraph::PrintTagStats(uint32_t tag)
+{
+  // Format:
+  // {timestamp, tag, channel_id, idle, read, write} 
+  stat_ << clk_ << ","
+        << tag  << ","
+        << channel_id_ << ","
+        << idle_count_ << ","
+        << read_count_ << ","
+        << write_count_ << ","
+        << std::endl;
 }
 
 
