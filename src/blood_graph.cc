@@ -196,7 +196,7 @@ void BloodGraph::PrintTagStats(uint32_t tag)
         << channel_id_ << ","
         << idle_count_ << ","
         << read_count_ << ","
-        << write_count_ << ","
+        << write_count_
         << std::endl;
 }
 
