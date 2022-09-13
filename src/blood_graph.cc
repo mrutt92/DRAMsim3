@@ -99,6 +99,7 @@ void BloodGraph::ClockTick() {
 
     bool read_issued_found;
     bool write_issued_found;
+    bool empty_found = false;
 
     for (int i = 0; i < bank_count_; i++) {
       if (read_issued_[i]) {
@@ -129,7 +130,10 @@ void BloodGraph::ClockTick() {
       } else {
         if (cmd_queue_->QueueEmpty(i)) {
           PrintTrace(i, "nop");
-          idle_count_++;
+          if (!empty_found && !read_issued_found && !write_issued_found) {
+            empty_found = true;
+            idle_count_++;
+          }
         } else {
           int ra, bg, ba;
           std::tie(ba, bg, ra) = cmd_queue_->GetBankBankgroupRankFromQueueIndex(i);
