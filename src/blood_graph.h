@@ -49,6 +49,7 @@ class BloodGraph {
     int idle_count_;
     int read_count_;
     int write_count_;
+    int refresh_count_;
     std::ofstream stat_;
 };
 

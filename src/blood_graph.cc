@@ -48,13 +48,14 @@ BloodGraph::BloodGraph(int channel_id, const Config &config)
   
   // stat info
   // Format:
-  // {timestamp, tag, channel_id, idle, read, write} 
+  // {timestamp, tag, channel_id, idle, refresh, read, write} 
   idle_count_ = 0;
   read_count_ = 0;
   write_count_ = 0;
+  refresh_count_ = 0;
   std::string stat_file_name = "blood_graph_stat.log";
   stat_.open(stat_file_name, std::ofstream::out);
-  stat_ << "timestamp,tag,channel_id,idle,read,write" << std::endl;
+  stat_ << "timestamp,tag,channel_id,idle,refresh,read,write" << std::endl;
 }
 
 
@@ -90,11 +91,13 @@ void BloodGraph::ClockTick() {
       act_count_[i] = 0;
       pre_count_[i] = 0;
     }
+    refresh_count_++; // for utilization stat.
   } else if (ref_count_ > 0) {
     for (int i = 0; i < bank_count_; i++) {
       PrintTrace(i, "ref");
     }
     ref_count_--;
+    refresh_count_++; // for utilization stat.
   } else {
 
     bool read_issued_found;
@@ -194,11 +197,12 @@ void BloodGraph::PrintTrace(int bank_id, const std::string &str)
 void BloodGraph::PrintTagStats(uint32_t tag)
 {
   // Format:
-  // {timestamp, tag, channel_id, idle, read, write} 
+  // {timestamp, tag, channel_id, idle,refresh, read, write} 
   stat_ << clk_ << ","
         << tag  << ","
         << channel_id_ << ","
         << idle_count_ << ","
+        << refresh_count_ << ","
         << read_count_ << ","
         << write_count_
         << std::endl;
