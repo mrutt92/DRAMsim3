@@ -46,7 +46,7 @@ class BloodGraph {
     void PrintTrace(int bank_id, const std::string &str);
 
     // stat info
-    int idle_count_;
+    int busy_count_;
     int read_count_;
     int write_count_;
     int refresh_count_;

@@ -48,14 +48,14 @@ BloodGraph::BloodGraph(int channel_id, const Config &config)
   
   // stat info
   // Format:
-  // {timestamp, tag, channel_id, idle, refresh, read, write} 
-  idle_count_ = 0;
+  // {timestamp, tag, channel_id, busy, refresh, read, write} 
+  busy_count_ = 0;
   read_count_ = 0;
   write_count_ = 0;
   refresh_count_ = 0;
   std::string stat_file_name = "blood_graph_stat.log";
   stat_.open(stat_file_name, std::ofstream::out);
-  stat_ << "timestamp,tag,channel_id,idle,refresh,read,write" << std::endl;
+  stat_ << "timestamp,tag,channel_id,busy,refresh,read,write" << std::endl;
 }
 
 
@@ -100,9 +100,9 @@ void BloodGraph::ClockTick() {
     refresh_count_++; // for utilization stat.
   } else {
 
-    bool read_issued_found;
-    bool write_issued_found;
-    bool empty_found = false;
+    bool read_issued_found = false;
+    bool write_issued_found = false;
+    bool busy_found = false;
 
     for (int i = 0; i < bank_count_; i++) {
       if (read_issued_[i]) {
@@ -121,9 +121,11 @@ void BloodGraph::ClockTick() {
       if (act_count_[i] > 0) {
         PrintTrace(i, "act");
         act_count_[i]--;
+        busy_found = true;
       } else if (pre_count_[i] > 0) {
         PrintTrace(i, "pre");
         pre_count_[i]--;
+        busy_found = true;
       } else if (read_issued_[i]) {
         PrintTrace(i, "rd");
         read_count_++;
@@ -133,10 +135,6 @@ void BloodGraph::ClockTick() {
       } else {
         if (cmd_queue_->QueueEmpty(i)) {
           PrintTrace(i, "nop");
-          if (!empty_found && !read_issued_found && !write_issued_found) {
-            empty_found = true;
-            idle_count_++;
-          }
         } else {
           int ra, bg, ba;
           std::tie(ba, bg, ra) = cmd_queue_->GetBankBankgroupRankFromQueueIndex(i);
@@ -174,10 +172,16 @@ void BloodGraph::ClockTick() {
           } else {
             PrintTrace(i, "closed");
           }
+          busy_found = true;
         }
       }
     }
+
+    if (busy_found && !read_issued_found && !write_issued_found) {
+      busy_count_++;
+    }
   }
+  
 
   is_in_ref_ = false;
   for (int i = 0; i < bank_count_; i++) {
@@ -197,11 +201,11 @@ void BloodGraph::PrintTrace(int bank_id, const std::string &str)
 void BloodGraph::PrintTagStats(uint32_t tag)
 {
   // Format:
-  // {timestamp, tag, channel_id, idle,refresh, read, write} 
+  // {timestamp, tag, channel_id, busy, refresh, read, write} 
   stat_ << clk_ << ","
         << tag  << ","
         << channel_id_ << ","
-        << idle_count_ << ","
+        << busy_count_ << ","
         << refresh_count_ << ","
         << read_count_ << ","
         << write_count_
