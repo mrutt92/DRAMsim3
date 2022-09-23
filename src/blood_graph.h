@@ -45,6 +45,10 @@ class BloodGraph {
     std::ofstream trace_;
     void PrintTrace(int bank_id, const std::string &str);
 
+    // tracking info
+    int data_line_busy_read_;  
+    int data_line_busy_write_;  
+
     // stat info
     int stat_busy_count_;
     int stat_read_count_;

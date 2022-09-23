@@ -45,7 +45,10 @@ BloodGraph::BloodGraph(int channel_id, const Config &config)
   trace_.open(trace_file_name, std::ofstream::out);
   trace_ << "time,bank,state" << std::endl;
 #endif
-  
+ 
+  data_line_busy_read_ = 0;
+  data_line_busy_write_ = 0;
+ 
   // stat info
   // Format:
   // {timestamp, tag, channel_id, busy, refresh, read, write} 
@@ -73,8 +76,10 @@ void BloodGraph::IssueCommand(const Command &cmd) {
       ref_count_ = config_.tRFC;
     } else if (cmd.IsRead()) {
       read_issued_[bank_id] = true;
+      data_line_busy_read_ = config_.BL/2;
     } else if (cmd.IsWrite()) {
       write_issued_[bank_id] = true;
+      data_line_busy_write_ = config_.BL/2;
     } else if (cmd.cmd_type == CommandType::ACTIVATE) {
       act_count_[bank_id] = config_.tRCDRD;
     } else if (cmd.cmd_type == CommandType::PRECHARGE) {
@@ -128,10 +133,8 @@ void BloodGraph::ClockTick() {
         busy_found = true;
       } else if (read_issued_[i]) {
         PrintTrace(i, "rd");
-        stat_read_count_++;
       } else if (write_issued_[i]) {
         PrintTrace(i, "wr");
-        stat_write_count_++;
       } else {
         if (cmd_queue_->QueueEmpty(i)) {
           PrintTrace(i, "nop");
@@ -177,8 +180,17 @@ void BloodGraph::ClockTick() {
       }
     }
 
-    if (busy_found && !read_issued_found && !write_issued_found) {
+    if (busy_found && (data_line_busy_read_ == 0) && (data_line_busy_write_ == 0)) {
       stat_busy_count_++;
+    }
+
+    if (data_line_busy_read_ > 0) {
+      stat_read_count_++;
+      data_line_busy_read_--;
+    }
+    if (data_line_busy_write_ > 0) {
+      stat_write_count_++;
+      data_line_busy_write_--;
     }
   }
   
