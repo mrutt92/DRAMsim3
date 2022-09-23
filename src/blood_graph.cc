@@ -49,10 +49,10 @@ BloodGraph::BloodGraph(int channel_id, const Config &config)
   // stat info
   // Format:
   // {timestamp, tag, channel_id, busy, refresh, read, write} 
-  busy_count_ = 0;
-  read_count_ = 0;
-  write_count_ = 0;
-  refresh_count_ = 0;
+  stat_busy_count_ = 0;
+  stat_read_count_ = 0;
+  stat_write_count_ = 0;
+  stat_refresh_count_ = 0;
   std::string stat_file_name = "blood_graph_stat.log";
   stat_.open(stat_file_name, std::ofstream::out);
   stat_ << "timestamp,tag,channel_id,busy,refresh,read,write" << std::endl;
@@ -91,13 +91,13 @@ void BloodGraph::ClockTick() {
       act_count_[i] = 0;
       pre_count_[i] = 0;
     }
-    refresh_count_++; // for utilization stat.
+    stat_refresh_count_++; // for utilization stat.
   } else if (ref_count_ > 0) {
     for (int i = 0; i < bank_count_; i++) {
       PrintTrace(i, "ref");
     }
     ref_count_--;
-    refresh_count_++; // for utilization stat.
+    stat_refresh_count_++; // for utilization stat.
   } else {
 
     bool read_issued_found = false;
@@ -128,10 +128,10 @@ void BloodGraph::ClockTick() {
         busy_found = true;
       } else if (read_issued_[i]) {
         PrintTrace(i, "rd");
-        read_count_++;
+        stat_read_count_++;
       } else if (write_issued_[i]) {
         PrintTrace(i, "wr");
-        write_count_++;
+        stat_write_count_++;
       } else {
         if (cmd_queue_->QueueEmpty(i)) {
           PrintTrace(i, "nop");
@@ -178,7 +178,7 @@ void BloodGraph::ClockTick() {
     }
 
     if (busy_found && !read_issued_found && !write_issued_found) {
-      busy_count_++;
+      stat_busy_count_++;
     }
   }
   
@@ -205,10 +205,10 @@ void BloodGraph::PrintTagStats(uint32_t tag)
   stat_ << clk_ << ","
         << tag  << ","
         << channel_id_ << ","
-        << busy_count_ << ","
-        << refresh_count_ << ","
-        << read_count_ << ","
-        << write_count_
+        << stat_busy_count_ << ","
+        << stat_refresh_count_ << ","
+        << stat_read_count_ << ","
+        << stat_write_count_
         << std::endl;
 }
 
