@@ -37,6 +37,10 @@ class ChannelState {
 
     std::vector<int> rank_idle_cycles;
 
+    BankState GetBankState(int ra, int bg, int ba) {
+      return bank_states_[ra][bg][ba];
+    }
+
    private:
     const Config& config_;
     const Timing& timing_;

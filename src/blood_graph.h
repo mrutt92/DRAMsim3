@@ -48,6 +48,7 @@ class BloodGraph {
     // tracking info
     int data_line_busy_read_;  
     int data_line_busy_write_;  
+    bool cmd_issued_;
 
     // stat info
     int stat_busy_count_;

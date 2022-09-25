@@ -48,7 +48,9 @@ BloodGraph::BloodGraph(int channel_id, const Config &config)
  
   data_line_busy_read_ = 0;
   data_line_busy_write_ = 0;
- 
+  cmd_issued_ = false; 
+
+
   // stat info
   // Format:
   // {timestamp, tag, channel_id, busy, refresh, read, write} 
@@ -74,16 +76,21 @@ void BloodGraph::IssueCommand(const Command &cmd) {
 
     if (cmd.IsRefresh()) {
       ref_count_ = config_.tRFC;
+      cmd_issued_ = true; 
     } else if (cmd.IsRead()) {
       read_issued_[bank_id] = true;
       data_line_busy_read_ = config_.BL/2;
+      cmd_issued_ = true; 
     } else if (cmd.IsWrite()) {
       write_issued_[bank_id] = true;
       data_line_busy_write_ = config_.BL/2;
+      cmd_issued_ = true; 
     } else if (cmd.cmd_type == CommandType::ACTIVATE) {
       act_count_[bank_id] = config_.tRCDRD;
+      cmd_issued_ = true; 
     } else if (cmd.cmd_type == CommandType::PRECHARGE) {
       pre_count_[bank_id] = config_.tRP;
+      cmd_issued_ = true; 
     }
   }
 }
@@ -107,7 +114,6 @@ void BloodGraph::ClockTick() {
 
     bool read_issued_found = false;
     bool write_issued_found = false;
-    bool busy_found = false;
 
     for (int i = 0; i < bank_count_; i++) {
       if (read_issued_[i]) {
@@ -126,11 +132,9 @@ void BloodGraph::ClockTick() {
       if (act_count_[i] > 0) {
         PrintTrace(i, "act");
         act_count_[i]--;
-        busy_found = true;
       } else if (pre_count_[i] > 0) {
         PrintTrace(i, "pre");
         pre_count_[i]--;
-        busy_found = true;
       } else if (read_issued_[i]) {
         PrintTrace(i, "rd");
       } else if (write_issued_[i]) {
@@ -175,13 +179,41 @@ void BloodGraph::ClockTick() {
           } else {
             PrintTrace(i, "closed");
           }
-          busy_found = true;
         }
       }
     }
 
-    if (busy_found && (data_line_busy_read_ == 0) && (data_line_busy_write_ == 0)) {
+    if (cmd_issued_ && (data_line_busy_read_ == 0) && (data_line_busy_write_ == 0)) {
       stat_busy_count_++;
+    } else {
+      bool ready_bank_found = false;
+      for (int i = 0; i < bank_count_; i++) {
+        int ra, bg, ba;
+        std::tie(ba, bg, ra) = cmd_queue_->GetBankBankgroupRankFromQueueIndex(i);
+        auto bank_state = channel_state_->GetBankState(ra,bg,ba);
+        auto cmd_timing = bank_state.GetCmdTiming();
+        if (bank_state.IsRowOpen()) {
+          if (cmd_timing[static_cast<int>(CommandType::PRECHARGE)] <= clk_) {
+            ready_bank_found = true;
+            break;
+          } else if (cmd_timing[static_cast<int>(CommandType::READ)] <= clk_) {
+            ready_bank_found = true;
+            break;
+          } else if (cmd_timing[static_cast<int>(CommandType::WRITE)] <= clk_) {
+            ready_bank_found = true;
+            break;
+          }
+        } else {
+          if (cmd_timing[static_cast<int>(CommandType::ACTIVATE)] <= clk_) {
+            ready_bank_found = true;
+            break;
+          }
+        }
+      }
+
+      if (!ready_bank_found) {
+        stat_busy_count_++;
+      }
     }
 
     if (data_line_busy_read_ > 0) {
@@ -193,8 +225,9 @@ void BloodGraph::ClockTick() {
       data_line_busy_write_--;
     }
   }
-  
 
+  // reset
+  cmd_issued_ = false;
   is_in_ref_ = false;
   for (int i = 0; i < bank_count_; i++) {
     read_issued_[i] = false;
