@@ -20,7 +20,8 @@ namespace dramsim3 {
 
 // default constructor
 BloodGraph::BloodGraph(int channel_id, const Config &config)
-  : config_(config)
+  : config_(config),
+    stat_period_(250) // how often dump periodic stat (in clk cycles);
 {
   channel_id_ = channel_id; 
   clk_ = 0;
@@ -61,6 +62,12 @@ BloodGraph::BloodGraph(int channel_id, const Config &config)
   std::string stat_file_name = "blood_graph_stat.log";
   stat_.open(stat_file_name, std::ofstream::out);
   stat_ << "timestamp,tag,channel_id,busy,refresh,read,write" << std::endl;
+
+  // periodic stat;
+  kernel_start_received_ = false;
+  std::string periodic_stat_file_name = "blood_graph_periodic_stat.csv";
+  periodic_stat_.open(periodic_stat_file_name, std::ofstream::out);
+  periodic_stat_ << "timestamp,channel_id,busy,refresh,read,write" << std::endl;
 }
 
 
@@ -233,6 +240,10 @@ void BloodGraph::ClockTick() {
     read_issued_[i] = false;
     write_issued_[i] = false;
   }
+  
+  // periodic stat;
+  PrintPeriodicStats();
+  // increment clk;
   clk_++;
 }
 
@@ -245,6 +256,12 @@ void BloodGraph::PrintTrace(int bank_id, const std::string &str)
 
 void BloodGraph::PrintTagStats(uint32_t tag)
 {
+  // check if tag is kernel start;
+  uint32_t tag_type = (tag & 0xc0000000) >> 30;
+  if (tag_type == 2) {
+    kernel_start_received_ = true;
+  }
+
   // Format:
   // {timestamp, tag, channel_id, busy, refresh, read, write} 
   stat_ << clk_ << ","
@@ -255,6 +272,26 @@ void BloodGraph::PrintTagStats(uint32_t tag)
         << stat_read_count_ << ","
         << stat_write_count_
         << std::endl;
+}
+
+void BloodGraph::PrintPeriodicStats()
+{
+  // check if kernel started;
+  if (!kernel_start_received_) {
+    return;
+  }
+
+#ifdef BLOOD_GRAPH_ENABLE_PERIODIC_TRACE
+  if (clk_ % stat_period_ == 0) {
+    periodic_stat_ << clk_ << ","
+      << channel_id_ << ","
+      << stat_busy_count_ << ","
+      << stat_refresh_count_ << ","
+      << stat_read_count_ << ","
+      << stat_write_count_
+      << std::endl;
+  }
+#endif
 }
 
 

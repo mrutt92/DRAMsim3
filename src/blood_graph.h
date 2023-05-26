@@ -56,6 +56,12 @@ class BloodGraph {
     int stat_write_count_;
     int stat_refresh_count_;
     std::ofstream stat_;
+
+    // periodic stat;
+    const int stat_period_;
+    bool kernel_start_received_;
+    std::ofstream periodic_stat_;
+    void PrintPeriodicStats();
 };
 
 } // namespace dramsim3
