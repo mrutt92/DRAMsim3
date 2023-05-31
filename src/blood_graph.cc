@@ -220,17 +220,18 @@ void BloodGraph::ClockTick() {
 
       if (!ready_bank_found) {
         stat_busy_count_++;
+      } else {
+        if (data_line_busy_read_ > 0) {
+          stat_read_count_++;
+          data_line_busy_read_--;
+        }
+        if (data_line_busy_write_ > 0) {
+          stat_write_count_++;
+          data_line_busy_write_--;
+        }
       }
     }
 
-    if (data_line_busy_read_ > 0) {
-      stat_read_count_++;
-      data_line_busy_read_--;
-    }
-    if (data_line_busy_write_ > 0) {
-      stat_write_count_++;
-      data_line_busy_write_--;
-    }
   }
 
   // reset
